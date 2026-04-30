@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GLSL-Thing+ — WebGL Video Effects</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>GLSL-Thing+ (WebGL Edition)</h1>
+    </header>
+
+    <section id="controls">
+      <div class="row">
+        <label class="file">
+          Upload video:
+          <input id="videoFile" type="file" accept="video/*">
+        </label>
+
+        <div class="transport">
+          <button id="playBtn" title="Play (Space)">
+            <!-- Play icon -->
+            <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" fill="currentColor"/></svg>
+          </button>
+          <button id="pauseBtn" title="Pause">
+            <!-- Pause icon -->
+            <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
+          </button>
+          <button id="stopBtn" title="Stop">
+            <!-- Stop icon -->
+            <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>
+        </div>
+
+        <div class="export">
+          <button id="startExport">Export (webm)</button>
+          <a id="downloadLink" style="display:none">Download</a>
+        </div>
+      </div>
+
+      <details open>
+        <summary>Effect parameters</summary>
+        <div class="params">
+          <label>Hue: <input id="hue" type="range" min="-180" max="180" value="0"></label>
+          <div class="param-grid">
+            <fieldset>
+              <legend>Wave params (12 values — 6 amplitude/frequency pairs)</legend>
+              <div id="waveParams"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Swirl (6 params)</legend>
+              <label>cx: <input id="swirl0" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+              <label>cy: <input id="swirl1" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+              <label>radius: <input id="swirl2" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+              <label>strength: <input id="swirl3" type="range" min="-10" max="10" step="0.1" value="2.5"></label>
+              <label>speed: <input id="swirl4" type="range" min="-5" max="5" step="0.01" value="0.5"></label>
+              <label>extra: <input id="swirl5" type="range" min="0" max="2" step="0.01" value="0.0"></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Shake (6 params) — UNUSED but present</legend>
+              <div id="shakeParams"></div>
+            </fieldset>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <main>
+      <div id="canvasWrap">
+        <canvas id="glCanvas" width="1280" height="720"></canvas>
+        <!-- Hidden video element used as a texture source -->
+        <video id="video" style="display:none" playsinline crossorigin="anonymous"></video>
+      </div>
+    </main>
+
+    <footer>
+      <small>GLSL-Thing+ WebGL shader demo — Hue, Wave (12 params), Swirl (6 params). Export keeps frames and audio (unmuted).</small>
+    </footer>
+  </div>
+
+  <script src="seesaw.js"></script>
+  <script src="HME.js"></script>
+  <script src="video-export.js"></script>
+  <script>
+    // Wire up UI to HME & export functionality
+    const videoFile = document.getElementById('videoFile');
+    const video = document.getElementById('video');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const startExport = document.getElementById('startExport');
+    const downloadLink = document.getElementById('downloadLink');
+
+    const hme = new HME({
+      canvas: document.getElementById('glCanvas'),
+      video: video
+    });
+
+    // Build wave controls (12 params)
+    const waveContainer = document.getElementById('waveParams');
+    for (let i = 0; i < 12; i++) {
+      const label = document.createElement('label');
+      label.innerHTML = `w${i}: <input data-id="${i}" class="waveParam" type="range" min="-2" max="2" step="0.01" value="${i%2===0?0.2:1.0}">`;
+      waveContainer.appendChild(label);
+    }
+
+    const shakeContainer = document.getElementById('shakeParams');
+    for (let i = 0; i < 6; i++) {
+      const label = document.createElement('label');
+      label.innerHTML = `s${i}: <input data-id="${i}" class="shakeParam" type="range" min="0" max="1" step="0.01" value="0">`;
+      shakeContainer.appendChild(label);
+    }
+
+    // Parameter bindings
+    document.getElementById('hue').addEventListener('input', e => {
+      hme.setHue(parseFloat(e.target.value));
+    });
+
+    document.querySelectorAll('.waveParam').forEach(el => {
+      el.addEventListener('input', () => {
+        const arr = Array.from(document.querySelectorAll('.waveParam')).map(i=>parseFloat(i.value));
+        hme.setWaveParams(arr);
+      });
+    });
+
+    document.querySelectorAll('.shakeParam').forEach(el=>{
+      el.addEventListener('input', ()=>{
+        const arr = Array.from(document.querySelectorAll('.shakeParam')).map(i=>parseFloat(i.value));
+        hme.setShakeParams(arr);
+      });
+    });
+
+    for (let i=0;i<6;i++){
+      document.getElementById('swirl'+i).addEventListener('input', ()=>{
+        const arr = [];
+        for (let j=0;j<6;j++) arr.push(parseFloat(document.getElementById('swirl'+j).value));
+        hme.setSwirl(arr);
+      });
+    }
+
+    // Upload
+    videoFile.addEventListener('change', (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.load();
+      // Autoplay when loaded
+      video.addEventListener('loadedmetadata', () => {
+        hme.resizeToVideo();
+      }, {once: true});
+    });
+
+    // Controls
+    playBtn.addEventListener('click', async () => {
+      if (video.src) {
+        video.play();
+      }
+      hme.start();
+    });
+    pauseBtn.addEventListener('click', () => {
+      video.pause();
+      hme.pause();
+    });
+    stopBtn.addEventListener('click', () => {
+      video.pause();
+      video.currentTime = 0;
+      hme.pause();
+    });
+
+    // Export handler: record 6 seconds by default
+    startExport.addEventListener('click', async () => {
+      if (!video.src) {
+        alert('Please upload and play a video before exporting.');
+        return;
+      }
+      // ensure video is playing (captureStream requires playback)
+      video.muted = false;
+      if (video.paused) await video.play();
+      const blob = await startCanvasVideoExport({
+        canvas: document.getElementById('glCanvas'),
+        audioSource: video,    // will be unmuted during export
+        duration: 6,           // seconds
+        mimeType: 'video/webm;codecs=vp9'
+      });
+      const url = URL.createObjectURL(blob);
+      downloadLink.href = url;
+      downloadLink.download = `glsl-thing-export-${Date.now()}.webm`;
+      downloadLink.style.display = 'inline-block';
+      downloadLink.textContent = 'Download export';
+    });
+
+    // keyboard space toggles play/pause
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (video.paused) { video.play(); hme.start(); }
+        else { video.pause(); hme.pause(); }
+      }
+    });
+
+    // Start HME animation loop; paused until play
+    hme.init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+:root{
+  --bg:#0e0f12;
+  --panel:#111215;
+  --accent:#66ccff;
+  --muted:#9aa0a6;
+  --control-bg:#141518;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#07080a,#0f1113);color:#eee}
+#app{max-width:1200px;margin:18px auto;padding:18px}
+header h1{margin:0 0 12px;font-size:20px;color:var(--accent)}
+#controls{background:var(--panel);padding:12px;border-radius:8px;margin-bottom:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.file input{display:inline-block}
+.transport button{background:var(--control-bg);border:1px solid #222;color:#fff;padding:8px;border-radius:6px;cursor:pointer;margin-right:6px}
+.transport svg{width:20px;height:20px}
+.export button{background:var(--accent);border:none;color:#042;padding:8px 12px;border-radius:6px;cursor:pointer}
+#canvasWrap{background:#000;padding:6px;border-radius:8px;display:flex;justify-content:center;align-items:center}
+canvas{max-width:100%;height:auto;border-radius:4px;display:block}
+.params{padding:8px}
+.param-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px}
+fieldset{background:#0b0c0e;padding:8px;border-radius:6px;border:1px solid #161718;color:#ddd}
+label{display:block;font-size:13px;margin-bottom:6px}
+label input[type="range"]{width:100%}
+footer{margin-top:12px;color:var(--muted);font-size:12px}
+details summary{cursor:pointer}
